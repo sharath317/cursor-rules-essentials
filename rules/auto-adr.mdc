@@ -1,0 +1,204 @@
+---
+description: Auto-generate Architecture Decision Records when significant patterns change
+globs: ["**/*.ts", "**/*.tsx", "docs/decisions/**"]
+alwaysApply: false
+---
+
+# Auto-ADR (Automatic Decision Recording)
+
+Automatically detect and draft Architecture Decision Records when significant architectural changes are made.
+
+## Trigger Conditions
+
+Generate ADR draft when I detect:
+
+### 1. New Pattern Introduction
+- First use of a new library/approach
+- New folder structure pattern
+- New state management approach
+- New API integration pattern
+
+### 2. Pattern Replacement
+- Replacing one library with another
+- Changing component structure approach
+- Switching state management
+- Updating data fetching patterns
+
+### 3. Significant Refactoring
+- Extracting shared utilities
+- Creating new abstractions
+- Consolidating duplicate code
+- Splitting large components
+
+### 4. Breaking Changes
+- API contract changes
+- Prop interface changes
+- Removing deprecated patterns
+- Updating core dependencies
+
+## Detection Signals
+
+| Signal | Indicates |
+|--------|-----------|
+| New package in import | New library adoption |
+| New folder in structure | Architectural change |
+| Deleted pattern across files | Pattern deprecation |
+| New hook with 5+ usages | Established pattern |
+| Changed core utility | Breaking change |
+
+## Auto-Draft Format
+
+When triggered, I will draft:
+
+```markdown
+# ADR-XXX: [Auto-Detected Title]
+
+> ⚠️ AUTO-GENERATED - Please review and complete
+
+## Status
+Proposed
+
+## Date
+{current_date}
+
+## Context
+**Detected Change:** {what I observed}
+**Files Affected:** {list of files}
+**Trigger:** {what triggered this ADR}
+
+> 👤 Please describe the problem this solves:
+> [USER INPUT NEEDED]
+
+## Decision
+**Observed Pattern:**
+{code example of new pattern}
+
+**Replaces:**
+{old pattern if applicable}
+
+> 👤 Please confirm this is the intended approach:
+> [USER INPUT NEEDED]
+
+## Consequences
+
+### Benefits (Observed)
+- {auto-detected benefit 1}
+- {auto-detected benefit 2}
+
+### Tradeoffs
+> 👤 Please list any tradeoffs:
+> [USER INPUT NEEDED]
+
+## Alternatives Considered
+> 👤 Were other options evaluated?
+> [USER INPUT NEEDED]
+
+## Evidence
+- PR: #{current_pr_if_any}
+- Files: {affected_files}
+- Commit: {current_commit}
+```
+
+## Workflow Integration
+
+### During PR Creation
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Creating PR for RBW-3459...                                │
+├─────────────────────────────────────────────────────────────┤
+│  📝 Architectural Change Detected                           │
+│                                                             │
+│  Change: First use of useWatch pattern                      │
+│  Scope: 3 form components                                   │
+│  Impact: Establishes new form state pattern                 │
+│                                                             │
+│  Draft ADR? (y/n/later)                                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Background Detection
+When reviewing code, silently track:
+- New patterns introduced
+- Patterns used 5+ times (becoming standard)
+- Patterns removed entirely (deprecated)
+
+### Periodic Summary
+```
+📊 Pattern Evolution This Week
+
+New Patterns Established:
+  - useWatch for form state (7 usages)
+  - AbortController in all async hooks
+
+Patterns Declining:
+  - methods.watch() (2 remaining, was 15)
+
+Suggested ADRs:
+  1. ADR: Migrate from watch() to useWatch
+  2. ADR: Require AbortController in async effects
+
+Draft these? (all/select/skip)
+```
+
+## ADR File Management
+
+### Numbering
+```bash
+# Auto-determine next ADR number
+NEXT=$(ls docs/decisions/ADR-*.md 2>/dev/null | \
+       sed 's/.*ADR-0*//' | \
+       sed 's/-.*//' | \
+       sort -n | \
+       tail -1)
+NEXT=$((NEXT + 1))
+```
+
+### File Location
+```
+docs/decisions/ADR-{NUMBER}-{slug}.md
+```
+
+### Slug Generation
+- Lowercase
+- Hyphens for spaces
+- Max 50 characters
+- Descriptive
+
+Examples:
+- `ADR-042-use-react-query-for-data-fetching.md`
+- `ADR-043-migrate-watch-to-usewatch.md`
+- `ADR-044-abortcontroller-in-async-effects.md`
+
+## Integration with Commands
+
+| Command | Auto-ADR Behavior |
+|---------|-------------------|
+| `/full-flow` | Check for ADR triggers after implementation |
+| `/refactor-new` | Draft ADR for significant refactors |
+| `/migration-plan` | Auto-create ADR for migration decisions |
+| `/pr-review` | Flag if PR needs ADR but doesn't have one |
+
+## Suppressing Auto-ADR
+
+For minor changes that don't need ADR:
+```
+# In commit message or PR description
+[no-adr] Minor refactoring
+```
+
+Or respond to prompt:
+```
+Draft ADR? (y/n/never-for-this-pattern)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+         Adds pattern to ignore list
+```
+
+## ADR Templates Directory
+
+Maintain templates at:
+```
+docs/decisions/templates/
+├── full-adr.md          # Complete ADR format
+├── quick-decision.md    # Lightweight decisions
+└── migration-adr.md     # Migration-specific
+```

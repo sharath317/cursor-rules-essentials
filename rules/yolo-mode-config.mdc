@@ -1,0 +1,178 @@
+---
+description: YOLO (Auto-Run) mode configuration - allows agent to self-validate
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# YOLO Mode Configuration (Auto-Run)
+
+Enable autonomous validation and self-correction without manual intervention.
+
+## Allow-List Commands
+
+The agent can auto-run these commands WITHOUT user confirmation:
+
+### ✅ Safe to Auto-Run
+
+```yaml
+validation:
+  - pnpm compile                    # Type checking
+  - pnpm lint                       # Linting
+  - pnpm test --passWithNoTests     # Unit tests
+  - pnpm tsc --noEmit               # TypeScript validation
+
+read_only:
+  - git status                      # Check state
+  - git diff --stat                 # See changes
+  - git log --oneline -10           # Recent commits
+  - grep -rn "pattern"              # Search codebase
+  - find . -name "*.tsx"            # Find files
+
+analysis:
+  - du -sh node_modules             # Check sizes
+  - wc -l **/*.tsx                  # Count lines
+```
+
+### ⚠️ Require Confirmation
+
+```yaml
+modifications:
+  - git commit                      # Confirm message
+  - git push                        # Confirm branch
+  - git checkout -b                 # Confirm branch name
+  - pnpm install                    # Confirm dependencies
+  - rm -rf                          # Always confirm deletes
+```
+
+### 🔴 Never Auto-Run
+
+```yaml
+dangerous:
+  - git push --force
+  - git reset --hard
+  - rm -rf node_modules
+  - pnpm publish
+  - Any command with secrets/tokens
+```
+
+## Self-Validation Loop
+
+When implementing code, I will automatically:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  1. WRITE CODE                                              │
+│     - Implement the feature/fix                             │
+│     - Follow project patterns                               │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  2. AUTO-VALIDATE (No confirmation needed)                  │
+│     - Run: pnpm compile                                     │
+│     - Run: pnpm lint (on changed files)                     │
+│     - Check for antipatterns                                │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  3. SELF-CORRECT (If errors found)                          │
+│     - Analyze error messages                                │
+│     - Apply fixes                                           │
+│     - Re-validate                                           │
+│     - Max 3 iterations before asking for help               │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  4. REPORT                                                  │
+│     - Show what was implemented                             │
+│     - Note any auto-corrections made                        │
+│     - Proceed to next task                                  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Error Recovery Strategy
+
+When validation fails:
+
+### Compile Errors
+```
+1. Read error message
+2. Identify file and line
+3. Fix issue
+4. Re-run compile
+5. If same error persists after 3 attempts → Ask user
+```
+
+### Lint Errors
+```
+1. Auto-fix if --fix available
+2. For manual fixes, apply change
+3. Re-run lint
+4. Report remaining issues
+```
+
+### Test Failures
+```
+1. Read failure message
+2. Check if test is outdated vs code is wrong
+3. If code is wrong → Fix code
+4. If test is outdated → Update test
+5. If unclear → Ask user
+```
+
+## Iteration Limits
+
+| Action | Max Auto-Retries | Then |
+|--------|------------------|------|
+| Compile fix | 3 | Ask user |
+| Lint fix | 2 | Report remaining |
+| Test fix | 2 | Ask user |
+| Pattern fix | 1 | Confirm before retry |
+
+## Reporting Format
+
+After auto-validation, report concisely:
+
+```
+✅ Implementation complete
+   - 3 files modified
+   - Compile: ✓ passed
+   - Lint: ✓ passed (2 auto-fixed)
+   - Tests: ✓ passed
+
+Ready for next task or review?
+```
+
+Or if issues:
+
+```
+⚠️ Implementation complete with notes
+   - 3 files modified
+   - Compile: ✓ passed
+   - Lint: 1 remaining issue (complexity warning, acceptable)
+   - Tests: ⚠️ 1 snapshot needs update
+
+Auto-update snapshot? (y/n)
+```
+
+## Background Agent Tasks
+
+These tasks can run autonomously in background:
+
+### Auto-Triggered
+- Format on save (handled by editor)
+- Import organization (on file save)
+- Unused import removal
+
+### Periodic (Suggest to User)
+- Dependency updates check (weekly)
+- Dead code detection (before PR)
+- Bundle size check (before PR)
+
+## Integration with Other Rules
+
+| Rule | YOLO Behavior |
+|------|---------------|
+| `web-standards.mdc` | Auto-enforce during write |
+| `auto-self-heal.mdc` | Auto-fix antipatterns |
+| `pr-quality.mdc` | Auto-check before PR creation |
+| `form-patterns.mdc` | Auto-correct watch → useWatch |

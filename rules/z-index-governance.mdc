@@ -1,0 +1,174 @@
+---
+description: Enforce z-index token system to prevent z-index wars
+globs: ["**/*.styled.ts", "**/*.css", "**/*.scss", "**/*.tsx"]
+alwaysApply: false
+---
+
+# Z-Index Governance
+
+Prevent "z-index wars" by enforcing a centralized z-index token system.
+
+## The Problem
+
+Hardcoded z-index values lead to:
+- Competing `z-index: 9999` declarations
+- Unpredictable stacking contexts
+- Maintenance nightmares
+- UI elements hidden behind others
+
+## Z-Index Token Scale
+
+Use semantic z-index tokens instead of arbitrary numbers:
+
+| Token | Value | Use Case |
+|-------|-------|----------|
+| `base` | 0 | Default stacking |
+| `dropdown` | 100 | Dropdowns, selects |
+| `sticky` | 200 | Sticky headers/footers |
+| `overlay` | 300 | Overlays, backdrops |
+| `modal` | 400 | Modal dialogs |
+| `popover` | 500 | Tooltips, popovers |
+| `toast` | 600 | Toast notifications |
+| `max` | 999 | Emergency override (rare) |
+
+## Detection Patterns
+
+### Pattern 1: Hardcoded High Z-Index
+
+When I see:
+```typescript
+// ❌ Detected: Hardcoded z-index war
+const Modal = styled.div`
+    z-index: 9999;
+`;
+```
+
+**Auto-action:** Replace with token:
+```typescript
+// ✅ Auto-healed: Using z-index token
+import { zIndex } from 'your-design-system/src/utils/zIndex';
+
+const Modal = styled.div`
+    z-index: ${zIndex('modal')};
+`;
+```
+
+### Pattern 2: Arbitrary Z-Index Values
+
+When I see:
+```typescript
+// ❌ Detected: Random z-index value
+z-index: 50;
+z-index: 1000;
+z-index: 10000;
+```
+
+**Auto-action:** Map to nearest semantic token:
+```typescript
+// ✅ Auto-healed: Semantic z-index
+z-index: ${zIndex('dropdown')};  // was 50
+z-index: ${zIndex('modal')};     // was 1000
+z-index: ${zIndex('max')};       // was 10000
+```
+
+### Pattern 3: Inline Style Z-Index
+
+When I see:
+```typescript
+// ❌ Detected: Inline z-index
+<div style={{ zIndex: 999 }}>
+```
+
+**Auto-action:** Move to styled component or use token:
+```typescript
+// ✅ Auto-healed
+<S.OverlayContainer>  // z-index defined in styled component
+```
+
+## Z-Index Utility (If Not Available)
+
+If `your-design-system` doesn't have z-index tokens, create:
+
+```typescript
+// utils/zIndex.ts
+export const Z_INDEX = {
+    base: 0,
+    dropdown: 100,
+    sticky: 200,
+    overlay: 300,
+    modal: 400,
+    popover: 500,
+    toast: 600,
+    max: 999,
+} as const;
+
+export const zIndex = (level: keyof typeof Z_INDEX): number => Z_INDEX[level];
+```
+
+## Stacking Context Rules
+
+### Create New Stacking Context
+
+When using z-index, ensure parent creates stacking context:
+```typescript
+// ✅ Parent with position creates stacking context
+const Container = styled.div`
+    position: relative;  // Required for z-index to work
+`;
+
+const Child = styled.div`
+    position: absolute;
+    z-index: ${zIndex('dropdown')};
+`;
+```
+
+### Isolation Property
+
+For complex nested UIs:
+```typescript
+// ✅ Isolate stacking context
+const IsolatedSection = styled.section`
+    isolation: isolate;  // Creates new stacking context
+`;
+```
+
+## Integration with Auto-Self-Heal
+
+When detecting z-index issues:
+
+1. **Hardcoded > 100** → Auto-suggest token
+2. **Duplicate high values** → Flag z-index war
+3. **Missing position** → Warn about stacking context
+
+## Reporting
+
+When z-index issues detected:
+```
+⚠️ Z-INDEX GOVERNANCE
+━━━━━━━━━━━━━━━━━━━━━
+
+Found z-index issues in this session:
+
+│ File                    │ Value  │ Suggested Token │
+│-------------------------|--------|-----------------|
+│ Modal.styled.ts:45      │ 9999   │ modal (400)     │
+│ Dropdown.styled.ts:23   │ 1000   │ dropdown (100)  │
+│ Header.styled.ts:12     │ 999    │ sticky (200)    │
+
+Auto-fix all? (y/n)
+```
+
+## Exceptions
+
+Allow hardcoded values only for:
+- Third-party library overrides (documented)
+- Portal containers (system-level)
+- Temporary debugging (must add TODO)
+
+```typescript
+// ✅ Documented exception
+const ThirdPartyOverride = styled.div`
+    /* Override react-select dropdown (their z-index is 1) */
+    z-index: 1001;
+`;
+```

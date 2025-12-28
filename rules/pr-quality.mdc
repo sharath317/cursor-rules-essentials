@@ -1,0 +1,76 @@
+---
+description: PR size limits, file count, security scans - validated before PR creation
+category: Quality Gates
+globs: ["apps/**/*.tsx", "apps/**/*.ts", "libraries/**/*.tsx", "libraries/**/*.ts"]
+alwaysApply: true
+---
+
+# PR Quality Rules (Auto-Enforced)
+
+PR-specific validations that run before creating or updating PRs.
+
+> **Note:** Code quality rules (component limits, hooks, styling) are in `web-standards.mdc`.
+> This rule focuses on PR-level concerns only.
+
+## Pre-PR Validation (PR Scope)
+
+### ✅ REQUIRED: Maximum file changes
+- Single PR should touch **< 15 files**
+- If > 15 files: STOP and suggest `/split-pr`
+
+### ✅ REQUIRED: Maximum lines changed
+- Target: **< 400 lines** added/modified
+- Warning: 400-800 lines
+- Critical: > 800 lines → Must split
+
+### ✅ REQUIRED: Single responsibility
+- All changes must relate to ONE ticket/feature
+- Mixed concerns → Split into separate PRs
+
+## Security (Pre-PR Scan)
+
+### Secret Detection
+Before any PR action, scan for:
+- API keys: `/[A-Za-z0-9_-]{32,}/`
+- AWS keys: `/AKIA[0-9A-Z]{16}/`
+- Private keys: `/-----BEGIN.*PRIVATE KEY-----/`
+- Tokens: `/token[=:]\s*['"][^'"]+['"]/i`
+
+**If detected:** 🔴 BLOCK PR creation
+
+### No console.log in production
+```typescript
+// ❌ Remove before PR
+console.log('debug', data);
+
+// ✅ Use proper logging or remove entirely
+```
+
+## Test Coverage (High-Risk Paths)
+
+For files in high-risk paths:
+- `**/payment/**` → Must have tests
+- `**/auth/**` → Must have tests
+- `**/booking/**` → Should have tests
+
+## Commit Message Rules
+
+**NEVER generate:**
+- `fix:`, `feat:`, `chore:` prefixes
+- Ticket IDs like `[RBW-3459]`
+- PR references
+
+**ALWAYS generate:**
+- Natural, conversational messages
+- Describe WHAT changed, not ticket numbers
+
+## PR Description
+
+**ALWAYS include:**
+- Summary of changes
+- Testing instructions
+- Screenshots (if UI change)
+
+**NEVER include:**
+- Implementation details in title
+- Technical jargon in description

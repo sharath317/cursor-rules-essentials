@@ -1,0 +1,189 @@
+---
+description: Auto-detect and fix SSR/CSR boundary issues to prevent hydration mismatches
+globs: ["**/*.tsx", "**/*.ts"]
+alwaysApply: false
+---
+
+# Client Boundary Guard (SSR/CSR)
+
+Automatically detect when client-only APIs are used in potentially server-rendered files and prevent hydration mismatches.
+
+## Trigger Conditions
+
+Activate when I detect these client-only patterns:
+
+### Browser APIs
+- `window.` - Window object access
+- `document.` - DOM manipulation
+- `localStorage` / `sessionStorage`
+- `navigator.`
+- `location.` (without useRouter)
+
+### React Client Hooks
+- `useEffect` with browser APIs
+- `useLayoutEffect`
+- `useSession` (next-auth)
+- `useSyncExternalStore` with browser state
+
+### Event Listeners
+- `addEventListener`
+- `ResizeObserver`
+- `IntersectionObserver`
+- `MutationObserver`
+
+## Auto-Detection Logic
+
+### Pattern 1: Direct Browser API Usage
+
+When I see:
+```typescript
+// ❌ Detected: Browser API in component body
+const Component = () => {
+    const width = window.innerWidth;
+    return <div style={{ width }} />;
+};
+```
+
+**Auto-action:** Suggest client directive or hook extraction:
+```typescript
+// ✅ Option 1: Add client directive (if Next.js/Remix)
+'use client';
+
+const Component = () => {
+    const [width, setWidth] = useState(0);
+    
+    useEffect(() => {
+        setWidth(window.innerWidth);
+    }, []);
+    
+    return <div style={{ width }} />;
+};
+```
+
+```typescript
+// ✅ Option 2: Extract to hook (preferred for reuse)
+// hooks/useWindowSize.ts
+export const useWindowSize = () => {
+    const [size, setSize] = useState({ width: 0, height: 0 });
+    
+    useEffect(() => {
+        const handleResize = () => {
+            setSize({ width: window.innerWidth, height: window.innerHeight });
+        };
+        
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+    
+    return size;
+};
+```
+
+### Pattern 2: localStorage Without Guard
+
+When I see:
+```typescript
+// ❌ Detected: Direct localStorage access
+const value = localStorage.getItem('key');
+```
+
+**Auto-action:** Add SSR guard:
+```typescript
+// ✅ Auto-healed: SSR-safe access
+const value = typeof window !== 'undefined' 
+    ? localStorage.getItem('key') 
+    : null;
+```
+
+### Pattern 3: useEffect with Missing Dependency
+
+When I see:
+```typescript
+// ❌ Detected: Browser API in useEffect without proper initialization
+const [mounted, setMounted] = useState(false);
+
+useEffect(() => {
+    // Missing mounted check for hydration safety
+    const theme = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    setDarkMode(theme);
+}, []);
+```
+
+**Auto-action:** Add hydration-safe pattern:
+```typescript
+// ✅ Auto-healed: Hydration-safe with mounted check
+const [mounted, setMounted] = useState(false);
+const [darkMode, setDarkMode] = useState(false);
+
+useEffect(() => {
+    setMounted(true);
+    const theme = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    setDarkMode(theme);
+}, []);
+
+if (!mounted) return null; // or skeleton
+```
+
+## File Classification
+
+### Likely Server Components (Check Carefully)
+- `page.tsx` / `layout.tsx` (Next.js App Router)
+- `loader.ts` / `action.ts` (Remix)
+- Files without 'use client' directive
+- Files exporting `getServerSideProps` / `getStaticProps`
+
+### Safe Client Components
+- Files with `'use client'` at top
+- Files in `/hooks/` directory
+- Files in `/components/client/` directory
+
+## Isomorphic Nightmare Detection
+
+When a file has:
+- More than 3 `typeof window` checks
+- Mixed server data fetching AND client state
+- useEffect for data that could be server-fetched
+
+**Alert:**
+```
+⚠️ ISOMORPHIC COMPLEXITY DETECTED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This file mixes server and client concerns:
+- Server: getServerSideProps, fetch
+- Client: useState, useEffect with window
+
+Recommendations:
+1. Split into Server Component + Client Component
+2. Move client logic to dedicated hook
+3. Use composition pattern
+
+Example split:
+  page.tsx (server) → imports → ClientWidget.tsx (client)
+```
+
+## Framework Detection
+
+Automatically adjust behavior based on:
+
+| Framework | Detection | Directive |
+|-----------|-----------|-----------|
+| Next.js App Router | `app/` directory | `'use client'` |
+| Next.js Pages | `pages/` directory | N/A (all client) |
+| Remix | `routes/` + loader | `export const clientLoader` |
+| Vite/CRA | No server | N/A (all client) |
+
+## Integration with YOLO Mode
+
+When auto-fixing:
+1. Add appropriate directive/guard
+2. Run `pnpm compile` to verify
+3. If hydration error persists, suggest deeper refactor
+
+## Sixt-Specific Patterns
+
+For this codebase:
+- Check `useOXBreakpoint` usage (already SSR-safe ✓)
+- Verify `useStatsig` initialization
+- Ensure tracking hooks have client guards

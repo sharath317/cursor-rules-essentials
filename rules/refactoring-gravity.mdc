@@ -1,0 +1,159 @@
+---
+description: "Refactoring Gravity - Identifies high-churn files with high coupling (import dependencies)"
+category: Analysis & Refactoring
+globs: ["**/*.{ts,tsx,js,jsx}"]
+alwaysApply: false
+severity: warning
+---
+
+# 🔴 Refactoring Gravity - Coupling Analysis
+
+Identifies files with **High Churn + High Gravity** (coupling) that are critical refactoring candidates.
+
+## 🎯 Purpose
+
+Churn frequency alone doesn't tell the full story. A file with 50 commits that **100 files import** is much more dangerous than a file with 50 commits that **2 files import**.
+
+**Gravity** measures how many other files break when this file changes.
+
+## 📊 Gravity Calculation
+
+```
+Gravity Score = (Afferent Coupling × 2) + (Efferent Coupling × 1) + (Import Frequency × 0.5)
+
+Where:
+- Afferent Coupling = How many files import this file (incoming dependencies)
+- Efferent Coupling = How many files this file imports (outgoing dependencies)
+- Import Frequency = How often imports change (churn in import statements)
+```
+
+### Gravity Levels
+
+| Level | Score Range | Meaning |
+|-------|-------------|---------|
+| 🟢 Low | 0-10 | Safe, low coupling |
+| 🟡 Medium | 11-30 | Moderate coupling, monitor |
+| 🔴 High | 31-60 | High coupling, refactor candidate |
+| 🔥 Critical | 61+ | Critical refactor needed |
+
+## 🚨 Trigger Conditions
+
+This rule triggers when:
+
+1. **High Churn Detected:** File has >50 commits in last 6 months (via `/churn-map`)
+2. **High Gravity Detected:** Gravity score >30 (High or Critical)
+3. **File Modified:** User is editing a file with High Churn + High Gravity
+
+## ⚠️ Action When Triggered
+
+When a file with **High Churn + High Gravity** is detected:
+
+```
+⚠️ REFACTORING GRAVITY WARNING
+├─ File: MainWithBooking.tsx
+├─ Churn: 🔴 Critical (145 commits/6mo)
+├─ Gravity: 🔥 Critical (78 score)
+│   ├─ Afferent: 42 files import this
+│   ├─ Efferent: 15 files imported
+│   └─ Import Frequency: High (imports change often)
+│
+├─ Risk Assessment:
+│   ├─ Blast Radius: 🔴 Very High (42 files affected)
+│   ├─ Refactor Priority: 🔥 Critical
+│   └─ Estimated Impact: High (many files break on change)
+│
+├─ Recommendations:
+│   ├─ Run: /churn-map --gravity for full analysis
+│   ├─ Run: /refactor-impact MainWithBooking.tsx
+│   ├─ Consider: /migration-plan for structured refactor
+│   └─ Suggest: Extract into smaller, decoupled modules
+│
+└─ Buddy Integration: This will appear in next /buddy snapshot
+```
+
+## 🔗 Integration with Buddy
+
+When Buddy detects you're modifying a high-gravity file:
+
+1. **Drift Mode Enhanced:** Shows Gravity score alongside Churn
+2. **Priority Boost:** High Churn + High Gravity tasks get +7 priority score
+3. **Refactor Suggestion:** Auto-suggests refactor in Buddy's Quick Actions
+4. **Migration Guide:** Pre-loads migration guides if available
+
+## 🔗 Integration with /churn-map
+
+The `/churn-map` command should include Gravity analysis:
+
+```
+/churn-map {PATH} --gravity
+/churn-map apps/rent-checkout --gravity --last=6mo
+```
+
+**Output Enhancement:**
+```
+════════════════════════════════════════════════════════════════
+  🔴 HIGH GRAVITY + HIGH CHURN (Critical Refactor Candidates)
+════════════════════════════════════════════════════════════════
+
+| File | Churn | Gravity | Afferent | Efferent | Priority |
+|------|-------|---------|----------|----------|----------|
+| MainWithBooking.tsx | 🔥 145 | 🔥 78 | 42 | 15 | 🔥 Critical |
+| BookingDetails.tsx | 🔥 128 | 🔴 65 | 38 | 12 | 🔥 Critical |
+| PackagesV2.tsx | ⚠️ 89 | 🟡 28 | 12 | 8 | 🟡 Monitor |
+
+Recommendation: Files with 🔥 Critical Gravity + High Churn should be
+refactored immediately to prevent cascading technical debt.
+```
+
+## 📋 Implementation Notes
+
+### How to Calculate Gravity
+
+1. **Afferent Coupling (Incoming):**
+   ```bash
+   # Count files that import this file
+   grep -r "from.*MainWithBooking" --include="*.{ts,tsx,js,jsx}" | wc -l
+   ```
+
+2. **Efferent Coupling (Outgoing):**
+   ```bash
+   # Count imports in this file
+   grep -E "^import.*from" MainWithBooking.tsx | wc -l
+   ```
+
+3. **Import Frequency:**
+   ```bash
+   # Count commits that changed import statements
+   git log --oneline --all -- "**/MainWithBooking.tsx" | \
+     xargs -I {} git show {} --stat | grep -E "import|from" | wc -l
+   ```
+
+### AST-Based Analysis (More Accurate)
+
+For more accurate analysis, use AST parsing:
+- Parse TypeScript/JavaScript files
+- Extract import/export statements
+- Build dependency graph
+- Calculate coupling metrics
+
+## 🎯 Goal
+
+**Prevent high-coupling files from becoming technical debt time bombs.**
+
+Files with High Churn + High Gravity are:
+- Hard to change (many files break)
+- Hard to test (many dependencies)
+- Hard to refactor (high risk)
+- High maintenance cost
+
+**Refactoring these files early prevents compound technical debt.**
+
+---
+
+## 🔄 Feedback Loop
+
+After refactoring a high-gravity file:
+1. Track actual maintenance cost reduction
+2. Compare to predicted ROI
+3. Update Gravity calculation if needed
+4. Learn which refactoring patterns work best

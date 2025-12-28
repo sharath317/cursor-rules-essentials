@@ -1,0 +1,284 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# React Functional Patterns Best Practices
+
+This document outlines our preferred patterns for React functional components, hooks usage, and related best practices based on our established codebase patterns.
+
+## Functional Component Syntax
+
+Use functional components with explicit return types. The return types shoud be `JSX.Element` or `null`, depending upon the implementation:
+
+```tsx
+// Preferred
+export const ComponentName = ({ prop1, prop2 }): JSX.Element => {
+    // Component logic
+    return (
+        <div>Content</div>
+    );
+};
+
+// For components that might return null
+export const ConditionalComponent = (): JSX.Element | null => {
+    if (someCondition) {
+        return null;
+    }
+
+    return (
+        <div>Content</div>
+    );
+};
+
+```
+
+## Hooks Organization
+
+Organize hooks in a logical sequence:
+
+```tsx
+export const Component = ({ initialData }): JSX.Element => {
+    // 1. State hooks first
+    const [data, setData] = useState(initialData);
+    const [isLoading, setIsLoading] = useState(false);
+
+    // 2. Ref hooks
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    // 3. Context hooks
+    const { user } = useUserContext();
+
+    // 4. Custom hooks
+    const { isSmallScreen } = useResponsive();
+
+    // 5. Data fetching or derived values
+    const filteredData = useMemo(() => {
+        return data.filter(item => item.isActive);
+    }, [data]);
+
+    // 6. Effect hooks last
+    useEffect(() => {
+        // Side effect logic
+    }, [dependencies]);
+
+    // 7. Event handlers and other functions
+    const handleClick = () => {
+        // Handle click
+    };
+
+    // 8. Return JSX
+    return (
+        <div>
+            {/* Content */}
+        </div>
+    );
+};
+
+```
+
+## Callback Functions
+
+Use appropriate callback patterns:
+
+```tsx
+// For functions that don't need dependencies, define outside component
+const formatDate = (date: Date): string => {
+    return date.toLocaleDateString();
+};
+
+export const Component = (): JSX.Element => {
+    // For event handlers or callbacks that use component state/props, use useCallback
+    const handleClick = useCallback(() => {
+        // Logic that uses component state or props
+    }, [dependencies]);
+
+    // For simple handlers that don't need memoization, define inside component
+    const handleToggle = () => {
+        // Simple toggle logic
+    };
+
+    return (
+        <button onClick={handleClick}>Click me</button>
+    );
+};
+
+```
+
+## Conditional Rendering
+
+Use clear conditional rendering patterns:
+
+```tsx
+// For simple conditions
+return (
+    <div>
+        {isLoading ? <LoadingSpinner /> : <Content data={data} />}
+    </div>
+);
+
+// For multiple conditions
+return (
+    <div>
+        {isLoading && <LoadingSpinner />}
+        {error && <ErrorMessage message={error} />}
+        {!isLoading && !error && <Content data={data} />}
+    </div>
+);
+
+// For early returns
+if (isLoading) {
+    return <LoadingSpinner />;
+}
+
+if (error) {
+    return <ErrorMessage message={error} />;
+}
+
+return <Content data={data} />;
+```
+
+## List Rendering
+
+Use keys properly when rendering lists:
+
+```tsx
+// Always use a stable, unique key for list items
+return (
+    <ul>
+        {items.map(item => (
+            <li key={item.id}>
+                {item.name}
+            </li>
+        ))}
+    </ul>
+);
+
+// When no stable ID exists, use index as last resort and document why
+return (
+    <ul>
+        {staticItems.map((item, index) => (
+            // Index is OK here because items are static and never reordered
+            <li key={`item-${index}`}>
+                {item}
+            </li>
+        ))}
+    </ul>
+);
+```
+
+## Error Handling
+
+Implement proper error boundaries and error states:
+
+```tsx
+// In parent components
+return (
+    <ErrorBoundary fallback={<ErrorFallback />}>
+        <ChildComponent />
+    </ErrorBoundary>
+);
+
+// For async operations
+const [error, setError] = useState<Error | null>(null);
+
+useEffect(() => {
+    const fetchData = async () => {
+        try {
+            const result = await api.getData();
+            setData(result);
+        } catch (err) {
+            setError(err as Error);
+            // Optional error reporting
+            reportError(err);
+        }
+    };
+
+    fetchData();
+}, []);
+
+if (error) {
+    return <ErrorDisplay message={error.message} />;
+}
+```
+
+## Accessibility
+
+Follow accessibility best practices:
+
+```tsx
+// Use semantic HTML elements
+return (
+    <section aria-labelledby="section-heading">
+        <h2 id="section-heading">Section Title</h2>
+        <p>Content</p>
+    </section>
+);
+
+// Add proper ARIA attributes
+const [isExpanded, setIsExpanded] = useState(false);
+
+return (
+    <div>
+        <button
+            aria-expanded={isExpanded}
+            aria-controls="panel-content"
+            onClick={() => setIsExpanded(!isExpanded)}
+        >
+            Toggle Panel
+        </button>
+
+        <div
+            id="panel-content"
+            aria-hidden={!isExpanded}
+        >
+            Panel content
+        </div>
+    </div>
+);
+```
+
+## Prop Handling
+
+Use destructuring and default values for props:
+
+```tsx
+// Destructure props with defaults
+export const Button = ({
+    children,
+    variant = 'primary',
+    size = 'medium',
+    isDisabled = false,
+    onClick,
+}): JSX.Element => {
+    // Component logic
+
+    return (
+        <button
+            className={`btn btn-${variant} btn-${size}`}
+            disabled={isDisabled}
+            onClick={onClick}
+        >
+            {children}
+        </button>
+    );
+};
+```
+
+## Clean Up Effects
+
+Always clean up side effects:
+
+```tsx
+useEffect(() => {
+    // Setup
+    const subscription = subscribeToData(onDataReceived);
+
+    // Cleanup function (runs before next effect or on unmount)
+    return () => {
+        subscription.unsubscribe();
+    };
+}, [onDataReceived]);
+```
+
+These practices will help maintain consistent, readable, and maintainable React components throughout the codebase.

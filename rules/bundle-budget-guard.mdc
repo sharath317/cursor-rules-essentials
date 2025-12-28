@@ -1,0 +1,193 @@
+---
+description: Monitor bundle size impact when adding new dependencies
+globs: ["**/package.json", "**/*.ts", "**/*.tsx"]
+alwaysApply: false
+---
+
+# Bundle Budget Guard
+
+Automatically check bundle size impact when adding new dependencies to prevent bundle bloat.
+
+## Trigger Conditions
+
+Activate when:
+1. New `import` from `node_modules` detected
+2. New package added to `package.json`
+3. Dynamic import added
+
+## Bundle Size Thresholds
+
+| Category | Warning | Critical | Action |
+|----------|---------|----------|--------|
+| Utility library | > 10kb | > 25kb | Suggest alternative |
+| UI component | > 25kb | > 50kb | Require justification |
+| Full framework | > 50kb | > 100kb | Team approval |
+| Any single import | > 50kb | > 100kb | Must tree-shake |
+
+## Detection Patterns
+
+### Pattern 1: Large Library Import
+
+When I see new import from heavy library:
+```typescript
+// ❌ Detected: Full lodash import (70kb+)
+import _ from 'lodash';
+import { debounce } from 'lodash';
+```
+
+**Auto-action:** Suggest tree-shakeable alternative:
+```typescript
+// ✅ Auto-healed: Specific import (2kb)
+import debounce from 'lodash/debounce';
+
+// ✅ Even better: Native or lighter alternative
+import { debounce } from 'lodash-es';
+// or
+const debounce = (fn, ms) => {
+    let timeout;
+    return (...args) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fn(...args), ms);
+    };
+};
+```
+
+### Pattern 2: Moment.js Detection
+
+When I see:
+```typescript
+// ❌ Detected: moment.js (300kb+ with locales)
+import moment from 'moment';
+```
+
+**Auto-action:** Suggest modern alternative:
+```typescript
+// ✅ Auto-healed: date-fns (tree-shakeable, ~2kb per function)
+import { format, parseISO } from 'date-fns';
+
+// ✅ Or native Intl API
+new Intl.DateTimeFormat('en-US').format(date);
+```
+
+### Pattern 3: Icon Library Bloat
+
+When I see:
+```typescript
+// ❌ Detected: Full icon library import
+import { Icons } from 'react-icons';
+import * as FaIcons from 'react-icons/fa';
+```
+
+**Auto-action:** Suggest specific imports:
+```typescript
+// ✅ Auto-healed: Specific icon only
+import { FaCheck, FaClose } from 'react-icons/fa';
+```
+
+## Known Heavy Libraries
+
+| Library | Size | Alternative |
+|---------|------|-------------|
+| `moment` | 300kb | `date-fns`, `dayjs`, native `Intl` |
+| `lodash` | 70kb | `lodash-es`, specific imports, native |
+| `axios` | 30kb | `fetch`, `ky`, `redaxios` |
+| `jquery` | 85kb | Native DOM APIs |
+| `chart.js` | 200kb | `recharts` (tree-shake), `lightweight-charts` |
+| `antd` | 1MB+ | Import specific components |
+| `material-ui` | 300kb+ | Import specific components |
+
+## Bundle Analysis Integration
+
+### With Bundlephobia (Manual Check)
+```
+When adding new package, check:
+https://bundlephobia.com/package/{package-name}
+```
+
+### With Local Analysis
+```bash
+# After adding dependency
+pnpm build --analyze
+# or
+npx @next/bundle-analyzer
+```
+
+## Auto-Warning Format
+
+When large import detected:
+```
+⚠️ BUNDLE SIZE WARNING
+━━━━━━━━━━━━━━━━━━━━━━
+
+New import detected: lodash
+Estimated size: ~70kb (minified + gzipped: ~25kb)
+
+Impact:
+├── Current bundle: 450kb
+├── After import: 520kb (+15.5%)
+└── Budget remaining: -20kb (OVER BUDGET)
+
+Alternatives:
+1. lodash-es (tree-shakeable) - only imports what you use
+2. lodash/debounce (2kb) - specific function import
+3. Native implementation (0kb) - see suggestion below
+
+Choose: (1/2/3/keep)
+```
+
+## Budget Tracking
+
+### Per-App Budgets (Example)
+
+```yaml
+# .cursor/bundle-budgets.yaml
+apps/rent-checkout:
+  total: 500kb
+  main: 200kb
+  vendor: 300kb
+  
+apps/rent-landing:
+  total: 300kb
+  main: 100kb
+  vendor: 200kb
+```
+
+### Per-Chunk Monitoring
+
+Track impact on route chunks:
+```
+Route: /checkout/protection
+├── Current: 85kb
+├── After lodash: 155kb
+└── Recommendation: Use specific import
+```
+
+## Sixt-Specific Guidelines
+
+### Approved Large Dependencies
+Already in bundle, free to use:
+- `react`, `react-dom` (baseline)
+- `styled-components`
+- `react-hook-form`
+- `yup`
+- `your-design-system`
+
+### Requires Justification
+- Any charting library
+- Rich text editors
+- PDF generators
+- Map libraries
+
+### Forbidden
+- `moment` (use date-fns)
+- `jquery`
+- Full `lodash` import
+
+## Integration with YOLO Mode
+
+When auto-validating:
+1. Detect new imports
+2. Estimate bundle impact
+3. If over threshold, pause and warn
+4. Suggest alternatives
+5. Require explicit approval for large additions

@@ -1,0 +1,151 @@
+---
+description: "Visual Regression Guard - Auto-detect UI changes and require visual verification"
+category: Testing & Verification
+globs: ["**/*.{css,scss,tsx,jsx,styled.ts}"]
+alwaysApply: false
+severity: warning
+---
+
+# 🎨 Visual Regression Guard
+
+Auto-detects UI-affecting changes and requires visual verification before PR merge.
+
+## 🎯 Purpose
+
+UI changes can introduce visual regressions that are hard to catch in code review. This rule ensures visual verification happens automatically.
+
+## 🚨 Trigger Conditions
+
+This rule triggers when:
+
+1. **CSS/SCSS Changes:** Files with `.css` or `.scss` extensions modified
+2. **Styled Components:** Files with `.styled.ts` or `.styled.js` modified
+3. **Tailwind Classes:** Files containing Tailwind utility classes changed
+4. **Component Files:** React components (`.tsx`, `.jsx`) with styling logic modified
+5. **Design System Components:** Core design system components modified
+
+## ⚠️ Action When Triggered
+
+When UI-affecting changes are detected:
+
+```
+⚠️ VISUAL VERIFICATION REQUIRED
+├─ UI Changes Detected:
+│   ├─ Button.styled.ts (styled components)
+│   ├─ MainWithBooking.tsx (component with styling)
+│   └─ styles.css (CSS changes)
+│
+├─ Risk Assessment:
+│   ├─ Visual Regression Risk: 🟡 Medium
+│   ├─ Components Affected: 3
+│   └─ Design System Impact: Low (no core components)
+│
+├─ Required Actions:
+│   ├─ Run: /vibe-check to verify visual changes
+│   ├─ Check: Storybook stories for affected components
+│   └─ Compare: Against Figma designs (if available)
+│
+└─ Buddy Integration: Added to Quick Actions [B] Visual Check
+```
+
+## 🔗 Integration with Buddy
+
+When Buddy detects UI changes in a PR or branch:
+
+1. **Quick Actions:** Adds "Visual Verification Needed" to Buddy's Quick Actions
+2. **Priority Boost:** UI changes without verification get +4 priority score
+3. **PR Checklist:** Auto-adds visual verification to PR checklist
+4. **Auto-Suggest:** Suggests `/vibe-check` in Buddy's recommendations
+
+### Buddy Output Enhancement
+
+```
+🎯 Priority 2: Review PR #22950 [Score: 7.8]
+├─ Why: UI changes detected (3 files)
+├─ Visual Risk: 🟡 Medium (Button, Card, Layout components)
+├─ Verification: ⚠️ Not yet verified
+├─ Quick Actions:
+│   [A] Start Review
+│   [B] Run Visual Check (/vibe-check) ← NEW
+│   [C] Check Storybook
+└─ If delayed: Visual regressions may slip through
+```
+
+## 🔗 Integration with /vibe-check
+
+The `/vibe-check` command should be enhanced:
+
+```
+/vibe-check --auto          # Auto-run when UI changes detected
+/vibe-check --pr            # Check all UI changes in PR
+/vibe-check --buddy         # Run from Buddy's Quick Action
+```
+
+## 🔗 Integration with /full-flow
+
+When `/full-flow` completes with UI changes:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  /full-flow RBW-3459                                       │
+├─────────────────────────────────────────────────────────────┤
+│  1. ✅ Fetch ticket                                         │
+│  2. ✅ Implement changes                                    │
+│  3. ✅ pnpm compile - passed                                │
+│  4. ✅ pnpm lint - passed                                   │
+│  5. ✅ pnpm test - passed                                    │
+│  6. 🎨 UI Changes Detected:                                 │
+│     ├─ Button.styled.ts                                     │
+│     └─ Card.tsx                                             │
+│  7. 🎨 /vibe-check - Running... (auto-triggered)           │
+│     └── Checking 2 changed components                       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## 📋 Detection Patterns
+
+### CSS/SCSS Files
+```typescript
+// Triggers on any .css or .scss file change
+glob: ["**/*.css", "**/*.scss"]
+```
+
+### Styled Components
+```typescript
+// Triggers on .styled.ts or .styled.js files
+glob: ["**/*.styled.ts", "**/*.styled.js"]
+```
+
+### Tailwind Classes
+```typescript
+// Detects Tailwind utility classes in JSX/TSX
+pattern: /className=["'].*?(?:bg-|text-|p-|m-|flex|grid|w-|h-)/g
+```
+
+### Component Styling Logic
+```typescript
+// Detects inline styles or style objects
+pattern: /style=\{|style:\s*\{/g
+```
+
+## 🎯 Goal
+
+**Catch visual regressions before they reach production.**
+
+Visual regressions are:
+- Hard to catch in code review
+- Expensive to fix after release
+- Damage user experience
+- Reduce design system consistency
+
+**Automatic visual verification prevents these issues.**
+
+---
+
+## 🔄 Feedback Loop
+
+After visual regressions are caught:
+1. Track which components/files cause most regressions
+2. Update detection patterns to catch similar issues earlier
+3. Improve `/vibe-check` accuracy based on findings
+4. Learn which UI changes are highest risk

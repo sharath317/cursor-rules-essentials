@@ -1,0 +1,154 @@
+---
+description: Require implementation plan before coding complex multi-file changes
+category: Process
+globs: ["**/*.ts", "**/*.tsx"]
+alwaysApply: false
+severity: block
+---
+
+# Plan-First Workflow (Enforced)
+
+Before generating or modifying code, determine task complexity.
+
+## Complexity Heuristics
+
+A task is considered **complex** if ANY are true:
+- Touches more than 3 files
+- Modifies shared state, routing, or data models
+- Refactors an existing component >150 LOC
+- Introduces a new feature or workflow
+- Implements from Figma designs
+- Addresses a bug with unclear root cause
+
+## Required Action (for complex tasks)
+
+### Option A: Inline Plan (Quick)
+
+Generate this structure before coding:
+
+```markdown
+## 🎯 PLAN
+
+### Goal
+{One sentence description}
+
+### Non-Goals
+{What we're explicitly NOT doing}
+
+### Files to Modify
+- `path/to/file1.tsx` - {what changes}
+- `path/to/file2.ts` - {what changes}
+
+### Risk Areas
+- {Risk 1} → Mitigation: {how}
+- {Risk 2} → Mitigation: {how}
+
+### Rollback Strategy
+{How to undo if this goes wrong}
+
+### Verification
+- [ ] How we'll verify this works
+```
+
+### Option B: PLAN.md File (Large Changes)
+
+For changes touching >5 files, create `PLAN.md` at the change root:
+
+```markdown
+# PLAN: {Feature/Change Name}
+
+## Goal
+{What we're achieving}
+
+## Non-Goals
+{What we're explicitly NOT doing}
+
+## Affected Files
+| File | Change Type | Risk |
+|------|-------------|------|
+| path/to/file.tsx | Modify | Low |
+
+## Implementation Steps
+1. [ ] Step 1
+2. [ ] Step 2
+3. [ ] Step 3
+
+## Risk Assessment
+- Overall Risk: Low/Medium/High
+- Key Risks: {list}
+
+## Rollback Strategy
+{How to undo}
+
+## Approval
+- [ ] Plan reviewed by user
+```
+
+## Enforcement
+
+| Condition | Action |
+|-----------|--------|
+| Complex task, no plan | **🔴 BLOCK** code generation |
+| Plan exists but incomplete | **🟡 WARN** and request clarification |
+| Simple task | Proceed without plan |
+
+**Do not proceed until the plan is acknowledged or approved by the user.**
+
+## Plan-Act-Verify Loop
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  1. PLAN                                                    │
+│     - Analyze requirements                                  │
+│     - Identify affected files                               │
+│     - Assess risk                                           │
+│     - Get user approval                                     │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  2. ACT                                                     │
+│     - Implement step by step                                │
+│     - Update plan as you go                                 │
+│     - Mark completed steps                                  │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  3. VERIFY                                                  │
+│     - Run tests/lints                                       │
+│     - Self-review changes                                   │
+│     - Confirm plan completion                               │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Skip Plan For
+
+- Simple one-line fixes
+- Comment/documentation updates
+- Direct user requests with explicit instructions
+- Answering questions (no code changes)
+- Renaming/moving files (mechanical changes)
+
+## Plan Checkpoints
+
+After every 3 steps, pause and:
+1. Summarize progress
+2. Confirm remaining steps
+3. Adjust plan if needed
+
+## Abort Conditions
+
+**STOP and re-plan if:**
+- Plan deviates significantly from original
+- Unexpected complexity discovered
+- New dependencies required
+- Risk level increases
+- User requests change in direction
+
+## Why This Matters
+
+| Without Plan | With Plan |
+|--------------|-----------|
+| AI momentum leads to over-engineering | Intent captured upfront |
+| Hard to rollback | Clear rollback strategy |
+| Scope creep | Non-goals defined |
+| Debugging is painful | Risk areas identified |

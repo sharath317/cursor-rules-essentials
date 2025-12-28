@@ -1,0 +1,280 @@
+---
+description: Auto-detect and fix common antipatterns while coding (agent-first healing)
+globs: ["**/*.ts", "**/*.tsx"]
+alwaysApply: false
+---
+
+# Auto Self-Heal (Agent-First Pattern Fixing)
+
+This rule enables automatic detection and healing of antipatterns **while you code**, eliminating the need for manual `/self-heal` commands.
+
+## Trigger Conditions
+
+Activate when I detect:
+
+1. **Race condition patterns** in useEffect
+2. **watch() usage** instead of useWatch
+3. **Unmemoized Yup schemas**
+4. **Components defined inside render**
+5. **Missing AbortController cleanup**
+6. **Hardcoded values** instead of design tokens
+
+## Auto-Healing Behaviors
+
+### 1. Race Condition Detection
+
+When I see:
+```typescript
+// ❌ Detected antipattern
+useEffect(() => {
+    fetchData().then(result => setData(result));
+}, [id]);
+```
+
+**Auto-action:** Immediately suggest fix with AbortController:
+```typescript
+// ✅ Auto-healed
+useEffect(() => {
+    const controller = new AbortController();
+    const fetchData = async () => {
+        try {
+            const result = await api.getData(id, { signal: controller.signal });
+            setData(result);
+        } catch (err) {
+            if (!controller.signal.aborted) setError(err as ApiError);
+        }
+    };
+    fetchData();
+    return () => controller.abort();
+}, [id]);
+```
+
+### 2. Form State Anti-patterns
+
+When I see:
+```typescript
+// ❌ Detected
+const value = methods.watch('fieldName');
+```
+
+**Auto-action:** Replace with useWatch:
+```typescript
+// ✅ Auto-healed
+const value = useWatch({ name: 'fieldName', control });
+```
+
+### 3. Unmemoized Schema
+
+When I see:
+```typescript
+// ❌ Detected - schema recreated every render
+const schema = yup.object({ field: yup.string().required() });
+```
+
+**Auto-action:** Wrap in useMemo:
+```typescript
+// ✅ Auto-healed
+const schema = useMemo(() => yup.object({
+    field: yup.string().required()
+}), []);
+```
+
+### 4. Inline Component Definition
+
+When I see:
+```typescript
+// ❌ Detected - recreated every render
+const MyComponent = () => {
+    const InfoButton = () => <button>Info</button>;
+    return <InfoButton />;
+};
+```
+
+**Auto-action:** Extract outside or memoize:
+```typescript
+// ✅ Auto-healed
+const InfoButton = memo(() => <button>Info</button>);
+
+const MyComponent = () => {
+    return <InfoButton />;
+};
+```
+
+### 5. Hardcoded Design Values (Comprehensive)
+
+#### 5a. Hardcoded Spacing
+
+When I see:
+```typescript
+// ❌ Detected
+padding: 16px;
+margin: 24px;
+gap: 8px;
+```
+
+**Auto-action:** Replace with spacing tokens:
+```typescript
+// ✅ Auto-healed
+padding: ${spacing('xs')};    // 16px
+margin: ${spacing('m')};      // 24px
+gap: ${spacing('3xs')};       // 8px
+```
+
+#### 5b. Hardcoded Colors (Hex Codes)
+
+When I see:
+```typescript
+// ❌ Detected: Hex color in styled-component
+background: #ffffff;
+color: #000000;
+border-color: #ff6b35;
+background: rgba(0, 0, 0, 0.5);
+```
+
+**Auto-action:** Map to nearest design token:
+```typescript
+// ✅ Auto-healed
+background: ${color('container1')};   // was #ffffff
+color: ${color('primary')};           // was #000000
+border-color: ${color('brand')};      // was #ff6b35
+background: ${color('overlay')};      // was rgba(0,0,0,0.5)
+```
+
+**Color Mapping Reference:**
+| Hex Pattern | Token |
+|-------------|-------|
+| `#fff`, `#ffffff` | `container1` or `canvas1` |
+| `#000`, `#000000` | `primary` |
+| `#ff6b35`, orange | `brand` |
+| `#4ecdc4`, teal | `positive` or `special3` |
+| `#e74c3c`, red | `negative` |
+| `#f39c12`, yellow | `cautious` or `special4` |
+| `#666`, `#999` | `secondary` or `tertiary` |
+
+#### 5c. Hardcoded Border Radius
+
+When I see:
+```typescript
+// ❌ Detected
+border-radius: 4px;
+border-radius: 8px;
+border-radius: 50%;
+```
+
+**Auto-action:** Replace with border radius tokens:
+```typescript
+// ✅ Auto-healed
+${borderRadiusStyles('xs')}   // 4px
+${borderRadiusStyles('s')}    // 8px
+${borderRadiusStyles('pill')} // 50% / circular
+```
+
+#### 5d. Hardcoded Z-Index (See z-index-governance.mdc)
+
+When I see:
+```typescript
+// ❌ Detected: Z-index war
+z-index: 9999;
+z-index: 1000;
+```
+
+**Auto-action:** Replace with z-index tokens:
+```typescript
+// ✅ Auto-healed
+z-index: ${zIndex('modal')};    // was 9999
+z-index: ${zIndex('overlay')};  // was 1000
+```
+
+#### 5e. Hardcoded Media Queries
+
+When I see:
+```typescript
+// ❌ Detected
+@media (min-width: 768px) { }
+@media (max-width: 1024px) { }
+```
+
+**Auto-action:** Replace with breakpoint enum:
+```typescript
+// ✅ Auto-healed
+@media ${Breakpoints.Small} { }
+@media ${Breakpoints.Medium} { }
+```
+
+#### 5f. Inline Styles with Design Values
+
+When I see:
+```typescript
+// ❌ Detected: Inline style with hardcoded value
+<div style={{ padding: '16px', backgroundColor: '#fff' }}>
+```
+
+**Auto-action:** Move to styled component or use tokens:
+```typescript
+// ✅ Auto-healed: Extract to styled component
+<S.Container>
+
+// In styled file:
+export const Container = styled.div`
+    padding: ${spacing('xs')};
+    background-color: ${color('container1')};
+`;
+```
+
+### 6. SSR/CSR Boundary Issues (See client-boundary.mdc)
+
+When I see:
+```typescript
+// ❌ Detected: Browser API without guard
+const width = window.innerWidth;
+```
+
+**Auto-action:** Add SSR guard or suggest hook extraction.
+
+### 7. Large Library Imports (See bundle-budget-guard.mdc)
+
+When I see:
+```typescript
+// ❌ Detected: Full lodash import
+import _ from 'lodash';
+```
+
+**Auto-action:** Suggest tree-shakeable alternative.
+
+## Proactive Search Mode
+
+After fixing an issue, I will:
+
+1. **Search for similar patterns** in related files
+2. **Report findings** without auto-fixing (requires confirmation)
+3. **Suggest rule updates** if pattern is common
+
+```
+🔍 Similar patterns found:
+  - useOfferData.ts:23 - Same race condition
+  - usePayment.ts:45 - Same race condition
+
+Fix all? (y/n)
+```
+
+## Silent Mode
+
+For non-critical fixes, apply silently and note in commit:
+- Import organization
+- Trailing whitespace
+- Consistent spacing
+
+## Integration with YOLO Mode
+
+When YOLO mode is enabled:
+1. Fix antipatterns automatically
+2. Run `pnpm compile` to verify
+3. If errors, revert and show diff
+4. If clean, proceed with fix applied
+
+## Learning Loop
+
+When I auto-heal:
+1. **Track pattern frequency** (mental model)
+2. **Suggest ESLint rules** if pattern appears 5+ times
+3. **Update memories** with new antipatterns discovered
